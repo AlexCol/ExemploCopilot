@@ -449,11 +449,9 @@ CONCLUSÕES:
 
 ---
 
-## 🎯 Exercícios 9-20: Estrutura de Solução
+---
 
-Devido ao tamanho, aqui estão as soluções principais dos exercícios restantes:
-
-### Exercício 9: BOOLEAN - Sistema de Tarefas
+## Exercício 9: BOOLEAN - Sistema de Tarefas
 
 ```sql
 CREATE TABLE tarefas_projeto (
@@ -541,18 +539,488 @@ CREATE TABLE pedidos_serial (
 
 ---
 
-## 📊 Dicas para Exercícios Restantes
+## Exercício 11: Formatação de Datas
 
-**Exercício 11-13**: Use `TO_CHAR` para formatação de datas  
-**Exercício 14**: Use `CREATE DOMAIN` com constraints  
-**Exercício 15**: IPv6 usa mesmos operadores que IPv4  
-**Exercício 16**: Use `EXPLAIN ANALYZE` e `pg_total_relation_size()`  
-**Exercício 17**: Combine `EXTRACT`, `AGE` e `INTERVAL`  
-**Exercício 18**: Use `TRY...CATCH` em PL/pgSQL para migração segura  
-**Exercício 19-20**: Combine todos os conceitos aprendidos  
+```sql
+CREATE TABLE relatorio_vendas (
+    id SERIAL PRIMARY KEY,
+    produto TEXT,
+    valor NUMERIC(10,2),
+    data_venda TIMESTAMPTZ
+);
+
+-- Inserir dados de exemplo
+INSERT INTO relatorio_vendas (produto, valor, data_venda) VALUES
+('Notebook', 3500.00, '2025-01-15 10:30:00-03'),
+('Mouse', 50.00, '2025-02-20 14:15:00-03'),
+('Teclado', 200.00, '2025-03-10 09:00:00-03'),
+('Monitor', 800.00, '2025-06-25 16:45:00-03'),
+('Webcam', 300.00, '2025-09-05 11:20:00-03');
+
+-- Gerar relatório formatado
+SELECT 
+    produto,
+    valor,
+    -- a) Data em formato brasileiro
+    TO_CHAR(data_venda, 'DD/MM/YYYY') AS data_br,
+    
+    -- b) Nome do mês por extenso
+    TO_CHAR(data_venda, 'TMMonth') AS mes_extenso,
+    
+    -- c) Dia da semana por extenso
+    TO_CHAR(data_venda, 'TMDay') AS dia_semana,
+    
+    -- d) Trimestre do ano
+    'Q' || EXTRACT(QUARTER FROM data_venda) AS trimestre,
+    
+    -- e) Semana do ano
+    EXTRACT(WEEK FROM data_venda) AS semana_ano
+FROM relatorio_vendas
+ORDER BY data_venda;
+
+-- Relatório agrupado por mês
+SELECT 
+    TO_CHAR(data_venda, 'YYYY-MM') AS mes,
+    TO_CHAR(data_venda, 'TMMonth/YYYY') AS mes_extenso,
+    COUNT(*) AS quantidade_vendas,
+    SUM(valor) AS valor_total
+FROM relatorio_vendas
+GROUP BY mes, mes_extenso
+ORDER BY mes;
+```
+
+---
+
+## Exercício 12: MAC Address
+
+```sql
+CREATE TABLE dispositivos_rede (
+    id SERIAL PRIMARY KEY,
+    nome TEXT,
+    mac MACADDR,
+    ip INET,
+    primeira_conexao TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- a) Inserir com diferentes formatos
+INSERT INTO dispositivos_rede (nome, mac, ip) VALUES
+('Servidor Web', '08:00:2b:01:02:03', '192.168.1.100'),
+('Firewall', '08-00-2b-01-02-04', '192.168.1.1'),
+('Switch Core', '08002b010205', '192.168.1.2'),
+('Router', '08:00:2b:01:02:06', '192.168.1.254'),
+('Access Point', '08-00-2B-01-02-07', '192.168.1.50');
+
+-- b) Padronizar MACs para formato com hífen
+SELECT 
+    nome,
+    mac,
+    REPLACE(mac::TEXT, ':', '-') AS mac_padronizado
+FROM dispositivos_rede;
+
+-- c) Identificar fabricante pelo OUI (primeiros 3 bytes)
+SELECT 
+    nome,
+    mac,
+    SUBSTRING(mac::TEXT, 1, 8) AS oui,
+    CASE SUBSTRING(mac::TEXT, 1, 8)
+        WHEN '08:00:2b' THEN 'Digital Equipment Corporation'
+        ELSE 'Desconhecido'
+    END AS fabricante
+FROM dispositivos_rede;
+
+-- d) Dispositivos conectados nas últimas 24h
+SELECT 
+    nome,
+    mac,
+    ip,
+    primeira_conexao,
+    AGE(NOW(), primeira_conexao) AS tempo_conectado
+FROM dispositivos_rede
+WHERE primeira_conexao >= NOW() - INTERVAL '24 hours'
+ORDER BY primeira_conexao DESC;
+```
+
+---
+
+## Exercício 13: Queries Complexas com Data/Hora
+
+```sql
+CREATE TABLE log_acesso (
+    id BIGSERIAL PRIMARY KEY,
+    usuario_id INT,
+    acao TEXT,
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- a) Inserir 20 logs distribuídos
+INSERT INTO log_acesso (usuario_id, acao, timestamp) VALUES
+(1, 'login', NOW() - INTERVAL '5 days' - INTERVAL '2 hours'),
+(1, 'view_page', NOW() - INTERVAL '5 days' - INTERVAL '1 hour'),
+(2, 'login', NOW() - INTERVAL '4 days' - INTERVAL '3 hours'),
+(1, 'logout', NOW() - INTERVAL '4 days'),
+(3, 'login', NOW() - INTERVAL '3 days' - INTERVAL '5 hours'),
+(2, 'view_page', NOW() - INTERVAL '3 days' - INTERVAL '4 hours'),
+(3, 'logout', NOW() - INTERVAL '3 days' - INTERVAL '3 hours'),
+(1, 'login', NOW() - INTERVAL '2 days' - INTERVAL '6 hours'),
+(2, 'login', NOW() - INTERVAL '2 days' - INTERVAL '2 hours'),
+(1, 'view_page', NOW() - INTERVAL '2 days'),
+(3, 'login', NOW() - INTERVAL '1 day' - INTERVAL '8 hours'),
+(2, 'logout', NOW() - INTERVAL '1 day' - INTERVAL '6 hours'),
+(1, 'login', NOW() - INTERVAL '1 day' - INTERVAL '3 hours'),
+(3, 'view_page', NOW() - INTERVAL '12 hours'),
+(2, 'login', NOW() - INTERVAL '10 hours'),
+(1, 'logout', NOW() - INTERVAL '8 hours'),
+(3, 'login', NOW() - INTERVAL '6 hours'),
+(2, 'view_page', NOW() - INTERVAL '4 hours'),
+(1, 'login', NOW() - INTERVAL '2 hours'),
+(3, 'logout', NOW() - INTERVAL '1 hour');
+
+-- b) Acessos por hora do dia
+SELECT 
+    EXTRACT(HOUR FROM timestamp) AS hora,
+    COUNT(*) AS quantidade_acessos
+FROM log_acesso
+GROUP BY hora
+ORDER BY hora;
+
+-- c) Acessos por dia da semana
+SELECT 
+    TO_CHAR(timestamp, 'TMDay') AS dia_semana,
+    EXTRACT(DOW FROM timestamp) AS dia_num,
+    COUNT(*) AS quantidade_acessos
+FROM log_acesso
+GROUP BY dia_semana, dia_num
+ORDER BY dia_num;
+
+-- d) Horário de pico
+SELECT 
+    EXTRACT(HOUR FROM timestamp) AS hora_pico,
+    COUNT(*) AS acessos
+FROM log_acesso
+GROUP BY hora_pico
+ORDER BY acessos DESC
+LIMIT 1;
+
+-- e) Média de acessos por usuário por dia
+SELECT 
+    usuario_id,
+    DATE(timestamp) AS dia,
+    COUNT(*) AS acessos_dia,
+    AVG(COUNT(*)) OVER (PARTITION BY usuario_id) AS media_por_dia
+FROM log_acesso
+GROUP BY usuario_id, dia
+ORDER BY usuario_id, dia;
+```
+
+---
+
+## Exercício 14: Tipo DOMAIN Customizado
+
+```sql
+-- a) DOMAIN para email
+CREATE DOMAIN email AS TEXT
+    CHECK (VALUE ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+    NOT NULL;
+
+COMMENT ON DOMAIN email IS 
+    'Email validado com regex. Formato: usuario@dominio.ext';
+
+-- b) DOMAIN para telefone brasileiro
+CREATE DOMAIN telefone_br AS VARCHAR(15)
+    CHECK (VALUE ~ '^\(\d{2}\) \d{4,5}-\d{4}$');
+
+-- c) DOMAIN para CPF (apenas dígitos)
+CREATE DOMAIN cpf AS CHAR(11)
+    CHECK (VALUE ~ '^\d{11}$');
+
+-- d) DOMAIN para valor positivo
+CREATE DOMAIN valor_positivo AS NUMERIC(10,2)
+    CHECK (VALUE > 0);
+
+-- Usar os DOMAINs
+CREATE TABLE clientes_validados (
+    id SERIAL PRIMARY KEY,
+    nome TEXT NOT NULL,
+    email email,
+    telefone telefone_br,
+    cpf cpf UNIQUE,
+    credito valor_positivo DEFAULT 0.01
+);
+
+-- Teste: Inserção válida
+INSERT INTO clientes_validados (nome, email, telefone, cpf, credito) VALUES
+('João Silva', 'joao@email.com', '(11) 98765-4321', '12345678901', 1000.00);
+
+-- Teste: Email inválido
+INSERT INTO clientes_validados (nome, email) VALUES
+('Maria', 'email-sem-arroba');
+-- ERROR: value for domain email violates check constraint
+
+-- Teste: CPF com formatação
+INSERT INTO clientes_validados (nome, email, cpf) VALUES
+('Pedro', 'pedro@email.com', '123.456.789-00');
+-- ERROR: apenas dígitos permitidos
+```
+
+---
+
+## Exercício 15: IPv6
+
+```sql
+CREATE TABLE dispositivos_ipv6 (
+    id SERIAL PRIMARY KEY,
+    nome TEXT,
+    ipv6 INET,
+    rede_ipv6 CIDR
+);
+
+-- a) Inserir dispositivos com IPv6
+INSERT INTO dispositivos_ipv6 (nome, ipv6, rede_ipv6) VALUES
+('Servidor Principal', '2001:db8::1', '2001:db8::/32'),
+('Servidor Backup', '2001:db8::2', '2001:db8::/32'),
+('Firewall', 'fe80::1', 'fe80::/10'),  -- Link-local
+('Router', '2001:db8:1::1', '2001:db8:1::/48');
+
+-- b) Verificar se IPv6 está na rede
+SELECT nome FROM dispositivos_ipv6
+WHERE '2001:db8::5'::INET << rede_ipv6;
+
+-- c) Notações (PostgreSQL normaliza automaticamente)
+SELECT 
+    nome,
+    ipv6,
+    HOST(ipv6) AS ipv6_completo,
+    MASKLEN(rede_ipv6) AS mascara
+FROM dispositivos_ipv6;
+
+-- d) Identificar tipo de endereço
+SELECT 
+    nome,
+    ipv6,
+    CASE 
+        WHEN ipv6 << 'fe80::/10'::CIDR THEN 'Link-Local'
+        WHEN ipv6 << 'fc00::/7'::CIDR THEN 'Unique Local'
+        WHEN ipv6 << '2000::/3'::CIDR THEN 'Global Unicast'
+        WHEN ipv6 << '::1/128'::CIDR THEN 'Loopback'
+        ELSE 'Outro'
+    END AS tipo_endereco
+FROM dispositivos_ipv6;
+```
+
+---
+
+## Exercício 16: Comparação de Performance
+
+```sql
+-- Criar tabelas
+CREATE TABLE tabela_int (
+    id INT PRIMARY KEY,
+    dados TEXT
+);
+
+CREATE TABLE tabela_bigint (
+    id BIGINT PRIMARY KEY,
+    dados TEXT
+);
+
+CREATE TABLE tabela_uuid (
+    id UUID PRIMARY KEY,
+    dados TEXT
+);
+
+-- Inserir 100.000 registros
+INSERT INTO tabela_int 
+SELECT i, 'dados_' || i 
+FROM generate_series(1, 100000) i;
+
+INSERT INTO tabela_bigint 
+SELECT i, 'dados_' || i 
+FROM generate_series(1, 100000) i;
+
+INSERT INTO tabela_uuid 
+SELECT gen_random_uuid(), 'dados_' || i 
+FROM generate_series(1, 100000) i;
+
+-- Comparar tamanho em disco
+SELECT 
+    'tabela_int' AS tabela,
+    pg_size_pretty(pg_total_relation_size('tabela_int')) AS tamanho
+UNION ALL
+SELECT 
+    'tabela_bigint',
+    pg_size_pretty(pg_total_relation_size('tabela_bigint'))
+UNION ALL
+SELECT 
+    'tabela_uuid',
+    pg_size_pretty(pg_total_relation_size('tabela_uuid'));
+
+-- Comparar tempo de SELECT por PK (execute várias vezes)
+EXPLAIN ANALYZE 
+SELECT * FROM tabela_int WHERE id = 50000;
+
+EXPLAIN ANALYZE 
+SELECT * FROM tabela_bigint WHERE id = 50000;
+
+EXPLAIN ANALYZE 
+SELECT * FROM tabela_uuid WHERE id = (SELECT id FROM tabela_uuid LIMIT 1);
+
+/*
+RESULTADOS ESPERADOS:
+- INT: Menor tamanho (4 bytes/PK)
+- BIGINT: Tamanho médio (8 bytes/PK)
+- UUID: Maior tamanho (16 bytes/PK)
+- Performance de SELECT por PK: Similar para todos (índice B-tree)
+- JOIN: INT/BIGINT mais rápidos que UUID
+*/
+```
+
+---
+
+## Exercício 17: Operações Avançadas com INTERVAL
+
+```sql
+-- a) Calcular idade exata
+CREATE FUNCTION calcular_idade_exata(data_nascimento DATE)
+RETURNS TEXT AS $$
+DECLARE
+    idade_interval INTERVAL;
+    anos INT;
+    meses INT;
+    dias INT;
+BEGIN
+    idade_interval := AGE(CURRENT_DATE, data_nascimento);
+    anos := EXTRACT(YEAR FROM idade_interval);
+    meses := EXTRACT(MONTH FROM idade_interval);
+    dias := EXTRACT(DAY FROM idade_interval);
+    
+    RETURN anos || ' anos, ' || meses || ' meses e ' || dias || ' dias';
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT calcular_idade_exata('1990-05-15');
+
+-- b) Função de tempo relativo
+CREATE FUNCTION tempo_relativo(timestamp_passado TIMESTAMPTZ)
+RETURNS TEXT AS $$
+DECLARE
+    diff INTERVAL;
+    segundos BIGINT;
+BEGIN
+    diff := NOW() - timestamp_passado;
+    segundos := EXTRACT(EPOCH FROM diff)::BIGINT;
+    
+    IF segundos < 60 THEN
+        RETURN 'há ' || segundos || ' segundos';
+    ELSIF segundos < 3600 THEN
+        RETURN 'há ' || (segundos / 60) || ' minutos';
+    ELSIF segundos < 86400 THEN
+        RETURN 'há ' || (segundos / 3600) || ' horas';
+    ELSIF segundos < 604800 THEN
+        RETURN 'há ' || (segundos / 86400) || ' dias';
+    ELSIF segundos < 2592000 THEN
+        RETURN 'há ' || (segundos / 604800) || ' semanas';
+    ELSE
+        RETURN 'há ' || (segundos / 2592000) || ' meses';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT tempo_relativo(NOW() - INTERVAL '2 days 3 hours');
+
+-- c) Próximo feriado
+CREATE TABLE feriados (
+    data DATE PRIMARY KEY,
+    nome TEXT
+);
+
+INSERT INTO feriados VALUES
+('2025-12-25', 'Natal'),
+('2026-01-01', 'Ano Novo'),
+('2026-04-21', 'Tiradentes');
+
+SELECT 
+    nome,
+    data,
+    data - CURRENT_DATE AS dias_faltando
+FROM feriados
+WHERE data > CURRENT_DATE
+ORDER BY data
+LIMIT 1;
+```
+
+---
+
+## Exercício 18: Migração de Tipos
+
+```sql
+-- Tabela legada
+CREATE TABLE legado (
+    id INT,
+    data_criacao VARCHAR(20),  -- 'DD/MM/YYYY HH24:MI'
+    valor VARCHAR(20),         -- 'R$ 1.234,56'
+    ip_cliente VARCHAR(50)
+);
+
+-- Inserir dados de teste
+INSERT INTO legado VALUES
+(1, '15/11/2025 10:30', 'R$ 1.234,56', '192.168.1.100'),
+(2, '16/11/2025 14:45', 'R$ 500,00', '10.0.0.50'),
+(3, '17/11/2025 09:15', 'R$ 2.500,75', 'ip-invalido'),  -- Erro proposital
+(4, '18/11/2025 16:00', 'R$ 999,99', '172.16.0.1');
+
+-- a) Criar tabela nova com tipos corretos
+CREATE TABLE novo (
+    id INT PRIMARY KEY,
+    data_criacao TIMESTAMPTZ,
+    valor NUMERIC(10,2),
+    ip_cliente INET
+);
+
+-- b) Script de migração com tratamento de erros
+DO $$
+DECLARE
+    rec RECORD;
+    valor_limpo TEXT;
+BEGIN
+    FOR rec IN SELECT * FROM legado LOOP
+        BEGIN
+            -- Limpar valor monetário
+            valor_limpo := REPLACE(REPLACE(rec.valor, 'R$ ', ''), '.', '');
+            valor_limpo := REPLACE(valor_limpo, ',', '.');
+            
+            INSERT INTO novo (id, data_criacao, valor, ip_cliente) VALUES (
+                rec.id,
+                TO_TIMESTAMP(rec.data_criacao, 'DD/MM/YYYY HH24:MI'),
+                valor_limpo::NUMERIC,
+                rec.ip_cliente::INET
+            );
+            
+            RAISE NOTICE 'Migrado ID %: OK', rec.id;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE WARNING 'Erro ao migrar ID %: %', rec.id, SQLERRM;
+        END;
+    END LOOP;
+END $$;
+
+-- c) Validar migração
+SELECT COUNT(*) AS total_legado FROM legado;
+SELECT COUNT(*) AS total_migrado FROM novo;
+SELECT * FROM novo ORDER BY id;
+```
+
+---
+
+## Exercício 19 e 20: Disponíveis nos arquivos de lições
+
+Para os exercícios 19 (Sistema de Logs) e 20 (Desafio Final), consulte os arquivos de lições que cobrem todos os tópicos necessários:
+
+- [JSONB e Dados Semi-Estruturados](./02-jsonb-dados-semi-estruturados.md)
+- [Arrays e Tipos Compostos](./03-arrays-tipos-compostos.md)
+- [Tipos Customizados](./05-tipos-customizados.md)
 
 ---
 
 ## 🔗 Navegação
 
-[← Voltar para Exercícios](./exercicios.md) | [Próximo Tópico: JSONB →](./02-jsonb-dados-semi-estruturados.md)
+[← Voltar para Exercícios](./exercicios.md) | [Índice do Módulo](./README.md)

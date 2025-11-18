@@ -417,7 +417,7 @@ FROM tarefas;
 
 ## 🔗 Navegação
 
-⬅️ [Voltar ao Índice](../README.md) | [Próximo: JSONB e Dados Semi-Estruturados →](./02-jsonb-dados-semi-estruturados.md)
+⬅️ [Voltar ao Índice do Módulo](./README.md) | [Índice Geral](../README.md) | [Próximo: JSONB →](./02-jsonb-dados-semi-estruturados.md)
 
 ---
 
