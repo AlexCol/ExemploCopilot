@@ -547,7 +547,7 @@ COMMIT;
 
 ## 🔗 Navegação
 
-⬅️ [Voltar: Tipos Geométricos e Texto](./04-tipos-geometricos-texto.md) | [Índice](./README.md) | [Exercícios →](./exercicios.md)
+⬅️ [Voltar: Texto](./04-tipos-geometricos-texto.md) | [Índice](./README.md) | [Exercícios →](./exercicios.md)
 
 ---
 

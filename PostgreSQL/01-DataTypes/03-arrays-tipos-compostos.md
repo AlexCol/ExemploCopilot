@@ -609,7 +609,7 @@ ADD EXCLUDE USING GIST (recurso WITH =, periodo WITH &&);
 
 ## 🔗 Navegação
 
-⬅️ [Voltar: JSONB](./02-jsonb-dados-semi-estruturados.md) | [Índice](./README.md) | [Próximo: Tipos Geométricos e Texto →](./04-tipos-geometricos-texto.md)
+⬅️ [Voltar: JSONB](./02-jsonb-dados-semi-estruturados.md) | [Índice](./README.md) | [Próximo: Texto →](./04-tipos-geometricos-texto.md)
 
 ---
 

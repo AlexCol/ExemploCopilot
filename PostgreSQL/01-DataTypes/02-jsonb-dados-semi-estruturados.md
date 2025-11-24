@@ -590,7 +590,7 @@ Use tabelas relacionais quando:
 
 ## 🔗 Navegação
 
-⬅️ [Voltar: Tipos Nativos](./01-tipos-nativos-avancados.md) | [Índice](./README.md) | [Próximo: Arrays e Tipos Compostos →](./03-arrays-tipos-compostos.md)
+⬅️ [Voltar: Tipos Nativos](./01-tipos-nativos-avancados.md) | [Índice](./README.md) | [Próximo: Arrays →](./03-arrays-tipos-compostos.md)
 
 ---
 

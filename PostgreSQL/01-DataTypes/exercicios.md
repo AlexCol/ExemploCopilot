@@ -333,4 +333,4 @@ Após completar estes exercícios, você deve estar confortável com:
 
 ## 🔗 Navegação
 
-[← Voltar para Aulas](./01-tipos-nativos-avancados.md) | [Ver Gabarito →](./gabarito-exercicios.md)
+[← Voltar](./README.md) | [Gabarito →](./gabarito-exercicios.md)

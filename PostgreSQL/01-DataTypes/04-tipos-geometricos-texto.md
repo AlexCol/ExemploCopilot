@@ -475,7 +475,7 @@ WHERE conteudo_tsv @@ to_tsquery('postgresql');
 
 ## 🔗 Navegação
 
-⬅️ [Voltar: Arrays e Tipos Compostos](./03-arrays-tipos-compostos.md) | [Índice](./README.md) | [Próximo: Tipos Customizados →](./05-tipos-customizados.md)
+⬅️ [Voltar: Arrays](./03-arrays-tipos-compostos.md) | [Índice](./README.md) | [Próximo: Tipos Customizados →](./05-tipos-customizados.md)
 
 ---
 

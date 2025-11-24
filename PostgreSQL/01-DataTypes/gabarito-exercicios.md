@@ -1023,4 +1023,4 @@ Para os exercícios 19 (Sistema de Logs) e 20 (Desafio Final), consulte os arqui
 
 ## 🔗 Navegação
 
-[← Voltar para Exercícios](./exercicios.md) | [Índice do Módulo](./README.md)
+⬅️ [Exercícios](./exercicios.md) | [Índice](./README.md)
