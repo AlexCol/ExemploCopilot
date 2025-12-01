@@ -341,7 +341,7 @@ INSERT INTO empresas (nome, endereco_sede, faturamento_anual) VALUES
 -- Inserir com sintaxe de texto
 INSERT INTO empresas (nome, endereco_sede) VALUES
 ('Tech Inc',
- '("Rua A", 123, "Andar 5", "Centro", "Rio de Janeiro", "RJ", "20000-000")'
+ '("Rua A", 123, "Andar 5", "Centro", "Rio de Janeiro", "RJ", "20000-000")'::endereco
 );
 ```
 
