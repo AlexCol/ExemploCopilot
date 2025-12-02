@@ -1,0 +1,558 @@
+# 16.4 - Audit Triggers e Tabelas de Auditoria
+
+## 📋 O que você vai aprender
+
+- Tabelas espelho de auditoria
+- Triggers para INSERT/UPDATE/DELETE
+- Auditoria genérica com JSONB
+- Capturar OLD vs NEW
+- Metadados de auditoria
+- Proteção de tabelas de audit
+
+---
+
+## 🎯 O que são Audit Triggers?
+
+**Audit Triggers** são triggers de banco de dados que capturam mudanças (INSERT, UPDATE, DELETE) em tabelas e registram essas mudanças em **tabelas de auditoria** dedicadas.
+
+### Diferenças vs Outros Mecanismos
+
+| Característica | Audit Triggers | Logs | pg_stat_statements |
+|----------------|----------------|------|-------------------|
+| Granularidade | Linha por linha | Statement | Statement agregado |
+| OLD/NEW values | ✅ Sim | ❌ Não | ❌ Não |
+| Customização | ✅ Alta | ⚠️ Média | ❌ Baixa |
+| Overhead | Alto (escrita) | Médio (I/O) | Baixo (memória) |
+| Uso principal | Compliance | Debugging | Performance tuning |
+
+### Para que servem?
+
+1. **Compliance**: LGPD, GDPR, SOX, PCI-DSS
+2. **Auditoria**: Rastrear quem mudou o quê e quando
+3. **Forense**: Investigar incidentes
+4. **Versionamento**: Histórico completo de mudanças
+5. **Rollback**: Restaurar valores antigos
+
+---
+
+## 📊 Padrão 1: Tabela Espelho
+
+Criar uma tabela de auditoria com **mesma estrutura** da tabela original, plus metadados.
+
+### Implementação
+
+```sql
+-- Tabela principal
+CREATE TABLE clientes (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100),
+    email VARCHAR(100),
+    ativo BOOLEAN DEFAULT TRUE
+);
+
+-- Tabela de auditoria (espelho)
+CREATE TABLE clientes_audit (
+    audit_id BIGSERIAL PRIMARY KEY,
+    operacao CHAR(1) NOT NULL,  -- 'I'=INSERT, 'U'=UPDATE, 'D'=DELETE
+    usuario VARCHAR(50) NOT NULL,
+    data_hora TIMESTAMPTZ DEFAULT NOW(),
+    ip_address INET,
+    aplicacao VARCHAR(100),
+    -- Colunas da tabela original
+    id INTEGER,
+    nome VARCHAR(100),
+    email VARCHAR(100),
+    ativo BOOLEAN
+);
+
+CREATE INDEX idx_clientes_audit_id ON clientes_audit(id);
+CREATE INDEX idx_clientes_audit_data ON clientes_audit(data_hora DESC);
+```
+
+### Triggers
+
+```sql
+-- Função genérica para INSERT
+CREATE OR REPLACE FUNCTION audit_clientes_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO clientes_audit (
+        operacao, usuario, ip_address, aplicacao,
+        id, nome, email, ativo
+    ) VALUES (
+        'I', 
+        current_user, 
+        inet_client_addr(), 
+        current_setting('application_name', TRUE),
+        NEW.id, NEW.nome, NEW.email, NEW.ativo
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER clientes_audit_insert
+AFTER INSERT ON clientes
+FOR EACH ROW EXECUTE FUNCTION audit_clientes_insert();
+
+-- Função genérica para UPDATE
+CREATE OR REPLACE FUNCTION audit_clientes_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO clientes_audit (
+        operacao, usuario, ip_address, aplicacao,
+        id, nome, email, ativo
+    ) VALUES (
+        'U', 
+        current_user, 
+        inet_client_addr(), 
+        current_setting('application_name', TRUE),
+        NEW.id, NEW.nome, NEW.email, NEW.ativo
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER clientes_audit_update
+AFTER UPDATE ON clientes
+FOR EACH ROW EXECUTE FUNCTION audit_clientes_update();
+
+-- Função genérica para DELETE
+CREATE OR REPLACE FUNCTION audit_clientes_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO clientes_audit (
+        operacao, usuario, ip_address, aplicacao,
+        id, nome, email, ativo
+    ) VALUES (
+        'D', 
+        current_user, 
+        inet_client_addr(), 
+        current_setting('application_name', TRUE),
+        OLD.id, OLD.nome, OLD.email, OLD.ativo
+    );
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER clientes_audit_delete
+AFTER DELETE ON clientes
+FOR EACH ROW EXECUTE FUNCTION audit_clientes_delete();
+```
+
+### Teste
+
+```sql
+-- Inserir
+INSERT INTO clientes (nome, email) VALUES ('João', 'joao@example.com');
+
+-- Atualizar
+UPDATE clientes SET ativo = FALSE WHERE id = 1;
+
+-- Deletar
+DELETE FROM clientes WHERE id = 1;
+
+-- Ver histórico
+SELECT * FROM clientes_audit ORDER BY audit_id;
+
+/*
+ audit_id | operacao | usuario  | data_hora           | id | nome | email            | ativo
+----------+----------+----------+---------------------+----+------+------------------+-------
+        1 | I        | app_user | 2024-01-15 10:40:00 |  1 | João | joao@example.com | t
+        2 | U        | app_user | 2024-01-15 10:41:00 |  1 | João | joao@example.com | f
+        3 | D        | app_user | 2024-01-15 10:42:00 |  1 | João | joao@example.com | f
+*/
+```
+
+---
+
+## 📦 Padrão 2: Auditoria Genérica com JSONB
+
+Uma **única tabela de auditoria** para **todas as tabelas** do banco, armazenando dados como JSONB.
+
+### Vantagens
+
+- ✅ Não precisa criar tabela de auditoria para cada tabela
+- ✅ Função de trigger reutilizável
+- ✅ Flexível (adicionar colunas não requer mudança na audit table)
+- ✅ Fácil consultar mudanças específicas com JSONB operators
+
+### Implementação
+
+```sql
+-- Tabela genérica de auditoria
+CREATE TABLE audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    tabela VARCHAR(50) NOT NULL,
+    operacao CHAR(1) NOT NULL,  -- 'I', 'U', 'D'
+    usuario VARCHAR(50) NOT NULL,
+    data_hora TIMESTAMPTZ DEFAULT NOW(),
+    ip_address INET,
+    aplicacao VARCHAR(100),
+    dados_antigos JSONB,  -- OLD (para UPDATE e DELETE)
+    dados_novos JSONB     -- NEW (para INSERT e UPDATE)
+);
+
+CREATE INDEX idx_audit_log_tabela ON audit_log(tabela);
+CREATE INDEX idx_audit_log_data ON audit_log(data_hora DESC);
+CREATE INDEX idx_audit_log_dados_novos ON audit_log USING GIN(dados_novos);
+CREATE INDEX idx_audit_log_dados_antigos ON audit_log USING GIN(dados_antigos);
+```
+
+### Função Genérica de Auditoria
+
+```sql
+CREATE OR REPLACE FUNCTION audit_trigger_func()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_old_data JSONB;
+    v_new_data JSONB;
+BEGIN
+    IF (TG_OP = 'DELETE') THEN
+        v_old_data = row_to_json(OLD)::JSONB;
+        v_new_data = NULL;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        v_old_data = row_to_json(OLD)::JSONB;
+        v_new_data = row_to_json(NEW)::JSONB;
+    ELSIF (TG_OP = 'INSERT') THEN
+        v_old_data = NULL;
+        v_new_data = row_to_json(NEW)::JSONB;
+    END IF;
+    
+    INSERT INTO audit_log (
+        tabela, operacao, usuario, 
+        ip_address, aplicacao,
+        dados_antigos, dados_novos
+    ) VALUES (
+        TG_TABLE_NAME::VARCHAR, 
+        LEFT(TG_OP, 1),
+        current_user,
+        inet_client_addr(),
+        current_setting('application_name', TRUE),
+        v_old_data,
+        v_new_data
+    );
+    
+    IF (TG_OP = 'DELETE') THEN
+        RETURN OLD;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Aplicar a Múltiplas Tabelas
+
+```sql
+-- Aplicar a clientes
+CREATE TRIGGER clientes_audit_trigger
+AFTER INSERT OR UPDATE OR DELETE ON clientes
+FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();
+
+-- Aplicar a pedidos
+CREATE TRIGGER pedidos_audit_trigger
+AFTER INSERT OR UPDATE OR DELETE ON pedidos
+FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();
+
+-- Aplicar a produtos
+CREATE TRIGGER produtos_audit_trigger
+AFTER INSERT OR UPDATE OR DELETE ON produtos
+FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();
+```
+
+### Consultar Auditoria
+
+```sql
+-- Ver todas as mudanças na tabela clientes
+SELECT 
+    id,
+    operacao,
+    usuario,
+    data_hora,
+    dados_novos->>'nome' AS nome,
+    dados_novos->>'email' AS email
+FROM audit_log
+WHERE tabela = 'clientes'
+ORDER BY id DESC;
+
+-- Ver quem mudou o email do cliente ID 123
+SELECT 
+    usuario,
+    data_hora,
+    dados_antigos->>'email' AS email_antigo,
+    dados_novos->>'email' AS email_novo
+FROM audit_log
+WHERE tabela = 'clientes'
+  AND operacao = 'U'
+  AND dados_novos->>'id' = '123'
+  AND dados_antigos->>'email' != dados_novos->>'email';
+
+-- Ver todos os DELETEs feitos por um usuário
+SELECT 
+    tabela,
+    data_hora,
+    dados_antigos
+FROM audit_log
+WHERE usuario = 'admin'
+  AND operacao = 'D'
+ORDER BY data_hora DESC;
+```
+
+---
+
+## 🎯 Capturando Metadados Adicionais
+
+### IP do Cliente
+
+```sql
+-- Já implementado acima
+inet_client_addr()  -- IP do cliente conectado
+
+-- Exemplo de uso:
+SELECT 
+    usuario,
+    ip_address,
+    COUNT(*) AS mudancas
+FROM audit_log
+WHERE data_hora > NOW() - INTERVAL '24 hours'
+GROUP BY usuario, ip_address
+ORDER BY mudancas DESC;
+```
+
+### Application Name
+
+```sql
+-- Configurar na conexão (exemplo com psycopg2 - Python)
+import psycopg2
+conn = psycopg2.connect(
+    host="localhost",
+    database="mydb",
+    user="app_user",
+    password="senha",
+    application_name="MyApp v1.0"
+)
+
+-- No trigger, capturar com:
+current_setting('application_name', TRUE)
+```
+
+### Transaction ID
+
+```sql
+-- Adicionar coluna à audit_log
+ALTER TABLE audit_log ADD COLUMN transaction_id BIGINT;
+
+-- Capturar no trigger
+CREATE OR REPLACE FUNCTION audit_trigger_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- ... (código anterior)
+    
+    INSERT INTO audit_log (
+        -- ... (colunas anteriores)
+        transaction_id
+    ) VALUES (
+        -- ... (valores anteriores)
+        txid_current()  -- Transaction ID
+    );
+    
+    -- ...
+END;
+$$ LANGUAGE plpgsql;
+
+-- Uso: ver todas as mudanças de uma transação
+SELECT * FROM audit_log WHERE transaction_id = 123456;
+```
+
+---
+
+## 🔒 Proteger Tabelas de Auditoria
+
+Garantir que registros de auditoria **nunca sejam alterados ou deletados**.
+
+### 1. Revogar Permissões
+
+```sql
+-- Apenas INSERT e SELECT
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM PUBLIC;
+GRANT INSERT, SELECT ON audit_log TO app_user;
+```
+
+### 2. Trigger de Proteção
+
+```sql
+-- Bloquear UPDATE e DELETE
+CREATE OR REPLACE FUNCTION protect_audit_log()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'Registros de auditoria não podem ser alterados!';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER protect_audit_log_trigger
+BEFORE UPDATE OR DELETE ON audit_log
+FOR EACH ROW EXECUTE FUNCTION protect_audit_log();
+
+-- Teste (deve falhar)
+DELETE FROM audit_log WHERE id = 1;
+-- ERROR:  Registros de auditoria não podem ser alterados!
+```
+
+### 3. Row-Level Security (RLS)
+
+```sql
+-- Habilitar RLS
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+
+-- Permitir apenas INSERT e SELECT
+CREATE POLICY audit_log_insert_policy ON audit_log
+    FOR INSERT
+    WITH CHECK (true);
+
+CREATE POLICY audit_log_select_policy ON audit_log
+    FOR SELECT
+    USING (true);
+
+-- Nenhuma policy para UPDATE/DELETE = bloqueado implicitamente
+```
+
+---
+
+## 🗂️ Particionamento de Tabelas de Auditoria
+
+Para grandes volumes de dados, particionar por data.
+
+```sql
+-- Recriar audit_log como particionada
+CREATE TABLE audit_log (
+    id BIGSERIAL,
+    tabela VARCHAR(50) NOT NULL,
+    operacao CHAR(1) NOT NULL,
+    usuario VARCHAR(50) NOT NULL,
+    data_hora TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    dados_antigos JSONB,
+    dados_novos JSONB,
+    PRIMARY KEY (id, data_hora)
+) PARTITION BY RANGE (data_hora);
+
+-- Criar partições mensais
+CREATE TABLE audit_log_2024_01 PARTITION OF audit_log
+    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+
+CREATE TABLE audit_log_2024_02 PARTITION OF audit_log
+    FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
+
+CREATE TABLE audit_log_2024_03 PARTITION OF audit_log
+    FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
+
+-- Automatizar criação de partições (extensão pg_partman)
+CREATE EXTENSION pg_partman;
+
+SELECT partman.create_parent(
+    p_parent_table => 'audit_log',
+    p_control => 'data_hora',
+    p_type => 'native',
+    p_interval => '1 month',
+    p_premake => 3  -- Criar 3 partições futuras
+);
+```
+
+---
+
+## 🎓 Boas Práticas
+
+### 1. Auditar Apenas o Necessário
+
+```sql
+-- ❌ MAU: Auditar tabelas de lookup/cache
+CREATE TRIGGER cache_audit_trigger ...  -- Overhead desnecessário
+
+-- ✅ BOM: Auditar apenas tabelas sensíveis
+CREATE TRIGGER clientes_audit_trigger ...
+CREATE TRIGGER pedidos_audit_trigger ...
+CREATE TRIGGER pagamentos_audit_trigger ...
+```
+
+### 2. Usar JSONB para Flexibilidade
+
+```sql
+-- ✅ BOM: JSONB permite queries poderosas
+SELECT * FROM audit_log WHERE dados_novos @> '{"ativo": false}';
+
+-- Encontrar todas as mudanças onde email contém "@gmail"
+SELECT * FROM audit_log WHERE dados_novos->>'email' LIKE '%@gmail.com%';
+```
+
+### 3. Retenção de Dados
+
+```sql
+-- Deletar auditoria antiga (exemplo: >2 anos)
+-- (apenas se compliance permitir!)
+DELETE FROM audit_log WHERE data_hora < NOW() - INTERVAL '2 years';
+
+-- Ou arquivar em tabela separada
+INSERT INTO audit_log_archive 
+SELECT * FROM audit_log WHERE data_hora < NOW() - INTERVAL '1 year';
+
+DELETE FROM audit_log WHERE data_hora < NOW() - INTERVAL '1 year';
+```
+
+---
+
+## 📊 Exemplo Completo: Sistema de Auditoria
+
+Veja o módulo **[11-Security/05-audit-compliance.md](../11-Security/05-audit-compliance.md)** para:
+- pgAudit extension
+- Compliance (LGPD, GDPR, PCI-DSS, SOX)
+- Alertas automáticos
+- Integração com sistemas de monitoramento
+
+---
+
+## 🔗 Navegação
+
+⬅️ [Anterior: Logs do PostgreSQL](./03-logs-postgresql.md) | [Voltar ao Índice: História e Auditoria](./README.md) | [Próximo: Temporal Tables →](./05-temporal-tables.md)
+
+---
+
+## 📝 Resumo Rápido
+
+```sql
+-- Tabela genérica de auditoria
+CREATE TABLE audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    tabela VARCHAR(50) NOT NULL,
+    operacao CHAR(1) NOT NULL,
+    usuario VARCHAR(50) NOT NULL,
+    data_hora TIMESTAMPTZ DEFAULT NOW(),
+    dados_antigos JSONB,
+    dados_novos JSONB
+);
+
+-- Função genérica
+CREATE OR REPLACE FUNCTION audit_trigger_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO audit_log (tabela, operacao, usuario, dados_antigos, dados_novos)
+    VALUES (
+        TG_TABLE_NAME::VARCHAR, 
+        LEFT(TG_OP, 1),
+        current_user,
+        CASE WHEN TG_OP IN ('UPDATE', 'DELETE') THEN row_to_json(OLD)::JSONB END,
+        CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN row_to_json(NEW)::JSONB END
+    );
+    
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Aplicar a tabela
+CREATE TRIGGER minha_tabela_audit_trigger
+AFTER INSERT OR UPDATE OR DELETE ON minha_tabela
+FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();
+
+-- Proteger audit table
+CREATE TRIGGER protect_audit_trigger
+BEFORE UPDATE OR DELETE ON audit_log
+FOR EACH ROW EXECUTE FUNCTION protect_audit_log();
+```
