@@ -1,4 +1,4 @@
-# Exercícios - História e Auditoria
+# Exercícios - History and Auditing
 
 ## 🎯 Objetivo
 
@@ -286,4 +286,4 @@ Implemente sistema completo de auditoria para aplicação de e-commerce:
 
 ## 🔗 Navegação
 
-⬅️ [Voltar ao Índice: História e Auditoria](./README.md) | [Ver Gabarito →](./gabarito-exercicios.md)
+⬅️ [Voltar ao Índice: History and Auditing](./README.md) | [Ver Gabarito →](./gabarito-exercicios.md)

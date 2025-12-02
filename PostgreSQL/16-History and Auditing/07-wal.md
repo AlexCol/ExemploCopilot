@@ -480,7 +480,7 @@ restore_command = 'gunzip < /backup/wal-archive/%f.gz > %p'
 
 ## 🔗 Navegação
 
-⬅️ [Anterior: MVCC](./06-mvcc.md) | [Voltar ao Índice: História e Auditoria](./README.md)
+⬅️ [Anterior: MVCC](./06-mvcc.md) | [Voltar ao Índice: History and Auditing](./README.md)
 
 ---
 

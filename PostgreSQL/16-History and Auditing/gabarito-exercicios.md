@@ -1,4 +1,4 @@
-# Gabarito - História e Auditoria
+# Gabarito - History and Auditing
 
 ## Exercício 1: Configurando .psql_history
 
@@ -436,4 +436,4 @@ pg_basebackup -D /backup/base -Fp -Xs -P
 
 ## 🔗 Navegação
 
-⬅️ [Voltar aos Exercícios](./exercicios.md) | [Voltar ao Índice: História e Auditoria](./README.md)
+⬅️ [Voltar aos Exercícios](./exercicios.md) | [Voltar ao Índice: History and Auditing](./README.md)

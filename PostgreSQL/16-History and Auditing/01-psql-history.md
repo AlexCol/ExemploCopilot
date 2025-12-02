@@ -429,7 +429,7 @@ Configurações personalizadas do psql (similar a ~/.bashrc):
 
 ## 🔗 Navegação
 
-⬅️ [Voltar ao Índice: História e Auditoria](./README.md) | [Próximo: pg_stat_statements →](./02-pg-stat-statements.md)
+⬅️ [Voltar ao Índice: History and Auditing](./README.md) | [Próximo: pg_stat_statements →](./02-pg-stat-statements.md)
 
 ---
 

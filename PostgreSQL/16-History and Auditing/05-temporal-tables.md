@@ -938,7 +938,7 @@ GROUP BY produto_id;
 
 ## 🔗 Navegação
 
-⬅️ [Anterior: Audit Triggers](./04-audit-triggers.md) | [Voltar ao Índice: História e Auditoria](./README.md) | [Próximo: MVCC →](./06-mvcc.md)
+⬅️ [Anterior: Audit Triggers](./04-audit-triggers.md) | [Voltar ao Índice: History and Auditing](./README.md) | [Próximo: MVCC →](./06-mvcc.md)
 
 ---
 

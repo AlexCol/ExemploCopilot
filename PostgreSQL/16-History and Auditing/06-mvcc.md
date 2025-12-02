@@ -502,7 +502,7 @@ END $$;
 
 ## 🔗 Navegação
 
-⬅️ [Anterior: Temporal Tables](./05-temporal-tables.md) | [Voltar ao Índice: História e Auditoria](./README.md) | [Próximo: WAL →](./07-wal.md)
+⬅️ [Anterior: Temporal Tables](./05-temporal-tables.md) | [Voltar ao Índice: History and Auditing](./README.md) | [Próximo: WAL →](./07-wal.md)
 
 ---
 

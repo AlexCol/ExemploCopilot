@@ -511,7 +511,7 @@ Veja o módulo **[11-Security/05-audit-compliance.md](../11-Security/05-audit-co
 
 ## 🔗 Navegação
 
-⬅️ [Anterior: Logs do PostgreSQL](./03-logs-postgresql.md) | [Voltar ao Índice: História e Auditoria](./README.md) | [Próximo: Temporal Tables →](./05-temporal-tables.md)
+⬅️ [Anterior: Logs do PostgreSQL](./03-logs-postgresql.md) | [Voltar ao Índice: History and Auditing](./README.md) | [Próximo: Temporal Tables →](./05-temporal-tables.md)
 
 ---
 

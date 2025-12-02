@@ -483,7 +483,7 @@ LIMIT 1;
 
 ## 🔗 Navegação
 
-⬅️ [Anterior: .psql_history](./01-psql-history.md) | [Voltar ao Índice: História e Auditoria](./README.md) | [Próximo: Logs do PostgreSQL →](./03-logs-postgresql.md)
+⬅️ [Anterior: .psql_history](./01-psql-history.md) | [Voltar ao Índice: History and Auditing](./README.md) | [Próximo: Logs do PostgreSQL →](./03-logs-postgresql.md)
 
 ---
 

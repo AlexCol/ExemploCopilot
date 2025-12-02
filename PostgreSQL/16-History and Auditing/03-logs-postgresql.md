@@ -612,7 +612,7 @@ grep "SELECT \* FROM pedidos WHERE data" /var/log/postgresql/postgresql-*.log | 
 
 ## 🔗 Navegação
 
-⬅️ [Anterior: pg_stat_statements](./02-pg-stat-statements.md) | [Voltar ao Índice: História e Auditoria](./README.md) | [Próximo: Audit Triggers →](./04-audit-triggers.md)
+⬅️ [Anterior: pg_stat_statements](./02-pg-stat-statements.md) | [Voltar ao Índice: History and Auditing](./README.md) | [Próximo: Audit Triggers →](./04-audit-triggers.md)
 
 ---
 
