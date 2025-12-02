@@ -121,6 +121,15 @@ Bem-vindo ao guia de estudos avançado de PostgreSQL! Este repositório contém 
 - [15.4 - Sharding Strategies](./15-AdvancedPatterns/04-sharding-strategies.md)
 - [15.5 - Database Design Patterns](./15-AdvancedPatterns/05-database-design-patterns.md)
 
+#### **16. History and Auditing**
+- [16.1 - Histórico de Comandos (.psql_history)](./16-Historia-Auditoria/01-psql-history.md)
+- [16.2 - Rastreamento de Queries (pg_stat_statements)](./16-Historia-Auditoria/02-pg-stat-statements.md)
+- [16.3 - Logs do PostgreSQL](./16-Historia-Auditoria/03-logs-postgresql.md)
+- [16.4 - Audit Triggers e Tabelas de Auditoria](./16-Historia-Auditoria/04-audit-triggers.md)
+- [16.5 - Temporal Tables e Versionamento](./16-Historia-Auditoria/05-temporal-tables.md)
+- [16.6 - MVCC: Versionamento Interno](./16-Historia-Auditoria/06-mvcc.md)
+- [16.7 - WAL: Write-Ahead Log](./16-Historia-Auditoria/07-wal.md)
+
 ## 🎯 Como usar este guia
 
 1. **Siga a ordem recomendada** - Os tópicos são progressivos

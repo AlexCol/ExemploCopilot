@@ -1,4 +1,4 @@
-# 📚 Tópico 16 - História e Auditoria no PostgreSQL
+# 📚 Tópico 16 - History and Auditing
 
 ## 🎯 Objetivo do Módulo
 
