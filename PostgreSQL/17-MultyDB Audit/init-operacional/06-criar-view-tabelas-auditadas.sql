@@ -4,8 +4,6 @@ SELECT DISTINCT ON (t.event_object_table)
     t.event_object_table as tabela,
     t.trigger_name as trigger_nome,
     COALESCE(a.total_registros, 0) as total_registros,
-    a.primeira_auditoria,
-    a.ultima_auditoria,
     COALESCE(a.total_inserts, 0) as total_inserts,
     COALESCE(a.total_updates, 0) as total_updates,
     COALESCE(a.total_deletes, 0) as total_deletes
@@ -14,8 +12,6 @@ LEFT JOIN (
     SELECT DISTINCT
         tabela,
         COUNT(*) as total_registros,
-        MIN(data_hora) as primeira_auditoria,
-        MAX(data_hora) as ultima_auditoria,
         COUNT(*) FILTER (WHERE operacao = 'I') as total_inserts,
         COUNT(*) FILTER (WHERE operacao = 'U') as total_updates,
         COUNT(*) FILTER (WHERE operacao = 'D') as total_deletes
