@@ -300,6 +300,262 @@ ORDER BY data_hora DESC;
 
 ---
 
+## 🔧 Padrão 3: Extensão audit-trigger (Automático)
+
+Para quem quer **auditoria automática sem criar triggers manualmente**, existe a extensão **`audit-trigger`** (também chamada de `audit` ou `tablelog`).
+
+### Instalação
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install postgresql-contrib
+
+# No PostgreSQL
+CREATE EXTENSION IF NOT EXISTS hstore;
+CREATE EXTENSION IF NOT EXISTS audit;  -- ou tablelog, dependendo da versão
+```
+
+### Uso - EXTREMAMENTE SIMPLES
+
+```sql
+-- 1. Criar sua tabela normalmente
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100),
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 2. Ativar auditoria (UMA LINHA!)
+SELECT audit.audit_table('users');
+
+-- 3. Usar normalmente - TUDO É LOGADO AUTOMATICAMENTE!
+INSERT INTO users (name, email) VALUES ('João', 'joao@mail.com');
+UPDATE users SET email = 'joao.silva@mail.com' WHERE id = 1;
+
+-- 4. Adicionar colunas - FUNCIONA AUTOMATICAMENTE!
+ALTER TABLE users ADD COLUMN phone VARCHAR(20);
+ALTER TABLE users ADD COLUMN department VARCHAR(50);
+
+UPDATE users SET phone = '47999999999', department = 'TI' WHERE id = 1;
+DELETE FROM users WHERE id = 1;
+
+-- 5. Consultar o log (tabela criada automaticamente)
+SELECT 
+    event_id,
+    schema_name,
+    table_name,
+    session_user_name,
+    action_tstamp_clk::timestamp(0) as quando,
+    action,
+    row_data,        -- Dados completos (hstore ou jsonb)
+    changed_fields   -- Apenas campos que mudaram
+FROM audit.logged_actions
+WHERE table_name = 'users'
+ORDER BY event_id DESC;
+```
+
+### Recursos Automáticos
+
+- ✅ **Captura automática**: INSERT, UPDATE, DELETE
+- ✅ **Metadados automáticos**: usuário, timestamp, IP, transaction ID
+- ✅ **OLD e NEW values**: Valores antes e depois da mudança
+- ✅ **Compatível com ALTER TABLE**: Adicionar colunas funciona automaticamente
+- ✅ **Statement text**: SQL completo executado
+- ✅ **Zero manutenção**: Não precisa atualizar triggers
+
+### Configurações Avançadas
+
+```sql
+-- Excluir colunas específicas (ex: senha)
+SELECT audit.audit_table('users', true, true, ARRAY['password']::TEXT[]);
+
+-- Desativar auditoria de uma tabela
+SELECT audit.audit_table_drop('users');
+
+-- Reativar auditoria
+SELECT audit.audit_table('users');
+
+-- Ver todas as tabelas auditadas
+SELECT * FROM audit.tableslist;
+```
+
+### Consultas Úteis
+
+```sql
+-- Ver evolução de um registro específico
+SELECT 
+    event_id,
+    action,
+    action_tstamp_clk::timestamp(0) as quando,
+    session_user_name,
+    row_data,
+    changed_fields
+FROM audit.logged_actions
+WHERE table_name = 'users'
+  AND (row_data->'id')::text = '1'
+ORDER BY event_id;
+
+-- Ver apenas mudanças de email
+SELECT 
+    event_id,
+    action_tstamp_clk::timestamp(0) as quando,
+    session_user_name,
+    changed_fields->'email' as novo_email,
+    row_data->'email' as email_completo
+FROM audit.logged_actions
+WHERE table_name = 'users'
+  AND action = 'U'
+  AND changed_fields ? 'email'  -- Apenas onde email mudou
+ORDER BY event_id DESC;
+
+-- Ver quem deletou algo
+SELECT 
+    session_user_name,
+    action_tstamp_clk::timestamp(0) as quando,
+    row_data
+FROM audit.logged_actions
+WHERE table_name = 'users'
+  AND action = 'D'
+ORDER BY event_id DESC;
+
+-- Mudanças nas últimas 24h
+SELECT 
+    table_name,
+    action,
+    session_user_name,
+    COUNT(*) as total
+FROM audit.logged_actions
+WHERE action_tstamp_clk > NOW() - INTERVAL '24 hours'
+GROUP BY table_name, action, session_user_name
+ORDER BY total DESC;
+
+-- Ver quem fez mais mudanças
+SELECT 
+    session_user_name,
+    COUNT(*) as total_mudancas,
+    COUNT(*) FILTER (WHERE action = 'I') as inserts,
+    COUNT(*) FILTER (WHERE action = 'U') as updates,
+    COUNT(*) FILTER (WHERE action = 'D') as deletes
+FROM audit.logged_actions
+GROUP BY session_user_name
+ORDER BY total_mudancas DESC;
+```
+
+### Estrutura da Tabela `audit.logged_actions`
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `event_id` | BIGSERIAL | ID único do evento |
+| `schema_name` | TEXT | Schema da tabela |
+| `table_name` | TEXT | Nome da tabela |
+| `relid` | OID | Object ID da tabela |
+| `session_user_name` | TEXT | Usuário da sessão |
+| `action_tstamp_tx` | TIMESTAMPTZ | Timestamp da transação |
+| `action_tstamp_stm` | TIMESTAMPTZ | Timestamp do statement |
+| `action_tstamp_clk` | TIMESTAMPTZ | Timestamp do relógio |
+| `transaction_id` | BIGINT | ID da transação |
+| `application_name` | TEXT | Nome da aplicação |
+| `client_addr` | INET | IP do cliente |
+| `client_port` | INTEGER | Porta do cliente |
+| `client_query` | TEXT | Query executada |
+| `action` | TEXT | 'I' (INSERT), 'U' (UPDATE), 'D' (DELETE), 'T' (TRUNCATE) |
+| `row_data` | HSTORE/JSONB | Dados completos da linha |
+| `changed_fields` | HSTORE/JSONB | Apenas campos alterados |
+| `statement_only` | BOOLEAN | Se é statement-level trigger |
+
+### Alternativa: Função Wrapper para Simular a Extensão
+
+Se a extensão `audit` não estiver disponível, você pode criar funções wrapper que simulam o comportamento:
+
+```sql
+-- Reutilizar a função audit_trigger_func() do Padrão 2 acima
+
+-- Função para ativar auditoria automaticamente em qualquer tabela
+CREATE OR REPLACE FUNCTION enable_audit(target_table TEXT)
+RETURNS VOID AS $$
+BEGIN
+    EXECUTE format('
+        CREATE TRIGGER %I_audit_trigger
+        AFTER INSERT OR UPDATE OR DELETE ON %I
+        FOR EACH ROW EXECUTE FUNCTION audit_trigger_func()
+    ', target_table, target_table);
+    
+    RAISE NOTICE 'Auditoria ativada para tabela: %', target_table;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Função para desativar auditoria
+CREATE OR REPLACE FUNCTION disable_audit(target_table TEXT)
+RETURNS VOID AS $$
+BEGIN
+    EXECUTE format('DROP TRIGGER IF EXISTS %I_audit_trigger ON %I', 
+                   target_table, target_table);
+    RAISE NOTICE 'Auditoria desativada para tabela: %', target_table;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Usar assim (simples como a extensão):
+SELECT enable_audit('users');
+SELECT enable_audit('pedidos');
+SELECT enable_audit('produtos');
+
+-- Desativar:
+SELECT disable_audit('users');
+
+-- Ver tabelas auditadas (criar view helper)
+CREATE OR REPLACE VIEW tabelas_auditadas AS
+SELECT DISTINCT 
+    tabela,
+    COUNT(*) as total_registros,
+    MIN(data_hora) as primeira_auditoria,
+    MAX(data_hora) as ultima_auditoria
+FROM audit_log
+GROUP BY tabela
+ORDER BY tabela;
+
+SELECT * FROM tabelas_auditadas;
+```
+
+### Comparação: Extensão vs Manual vs Wrapper
+
+| Aspecto | audit Extension | Triggers Manuais | Função Wrapper |
+|---------|----------------|------------------|----------------|
+| **Setup** | 1 linha | ~50 linhas/tabela | 1 linha |
+| **Manutenção** | Zero | Alta | Baixa |
+| **Metadados** | Completos | Customizável | Customizável |
+| **ALTER TABLE** | Automático | Pode quebrar | Automático (JSONB) |
+| **Performance** | Otimizado | Variável | Boa |
+| **Portabilidade** | Requer extensão | Total | Total |
+| **Customização** | Limitada | Total | Média |
+| **Instalação** | Precisa instalar | Não precisa | Não precisa |
+
+### Quando Usar Cada Abordagem?
+
+#### Use a extensão `audit` se:
+- ✅ Quer setup rápido e zero manutenção
+- ✅ Precisa de metadados completos automaticamente (client_query, ports, etc)
+- ✅ Não precisa customizar o formato dos logs
+- ✅ Está em ambiente controlado (pode instalar extensões)
+- ✅ Quer usar HSTORE para dados (mais compacto que JSONB)
+
+#### Use a função wrapper (enable_audit) se:
+- ✅ Quer simplicidade similar à extensão
+- ✅ **NÃO pode instalar extensões** no servidor
+- ✅ Prefere JSONB em vez de HSTORE
+- ✅ Quer customizar metadados capturados
+- ✅ Precisa de portabilidade entre servidores
+
+#### Use triggers manuais (Padrão 1) se:
+- ✅ Precisa de **formato específico** de auditoria
+- ✅ Quer controle total sobre o que é logado
+- ✅ Precisa de **lógica de negócio** customizada
+- ✅ Quer tabelas espelho (mesma estrutura)
+- ✅ Precisa de **performance otimizada** para tabelas específicas
+
+---
+
 ## 🎯 Capturando Metadados Adicionais
 
 ### IP do Cliente
