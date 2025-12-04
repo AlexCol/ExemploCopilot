@@ -1,11 +1,3 @@
--- ============================================
--- 06 - Criar View: tabelas_auditadas
--- ============================================
--- Descrição: View helper que mostra quais tabelas estão sendo auditadas
---            e estatísticas básicas de cada uma
--- Execução: Uma vez no banco operacional
--- ============================================
-
 CREATE OR REPLACE VIEW tabelas_auditadas AS
 SELECT DISTINCT ON (t.event_object_table)
     t.trigger_schema as schema,
@@ -19,7 +11,7 @@ SELECT DISTINCT ON (t.event_object_table)
     COALESCE(a.total_deletes, 0) as total_deletes
 FROM information_schema.triggers t
 LEFT JOIN (
-    SELECT 
+    SELECT DISTINCT
         tabela,
         COUNT(*) as total_registros,
         MIN(data_hora) as primeira_auditoria,
@@ -34,13 +26,3 @@ WHERE t.trigger_name LIKE '%_audit_trigger'
   AND t.action_timing = 'AFTER'
   AND t.event_manipulation IN ('INSERT', 'UPDATE', 'DELETE')
 ORDER BY t.event_object_table;
-
--- Comentário
-COMMENT ON VIEW tabelas_auditadas IS 
-'Mostra todas as tabelas com auditoria ativa e estatísticas de logs';
-
--- Verificação
-SELECT 'View tabelas_auditadas criada com sucesso!' as status;
-
--- Exemplo de uso (comentado):
--- SELECT * FROM tabelas_auditadas;

@@ -24,21 +24,6 @@ REVOKE ALL ON audit_log FROM PUBLIC;
 -- Bloquear UPDATE e DELETE explicitamente
 -- Isso será reforçado pelo trigger de proteção no próximo script
 
--- Comentários
-COMMENT ON TABLE audit_log IS 'Tabela de auditoria - SOMENTE INSERT e SELECT permitidos';
-
--- Verificação das permissões
-SELECT 
-    grantee,
-    privilege_type,
-    is_grantable
-FROM information_schema.table_privileges
-WHERE table_name = 'audit_log'
-ORDER BY grantee, privilege_type;
-
-SELECT 'Permissões configuradas com sucesso!' as status;
-SELECT '⚠️  IMPORTANTE: Ajuste os GRANT statements conforme os roles do seu ambiente!' as aviso;
-
 /*
 INSTRUÇÕES PARA CONFIGURAÇÃO:
 

@@ -1,12 +1,4 @@
--- ============================================
--- 05 - Criar Função Helper: disable_audit()
--- ============================================
--- Descrição: Função para desativar auditoria de uma tabela
--- Uso: SELECT disable_audit('nome_da_tabela');
--- Execução: Uma vez no banco operacional
--- ============================================
-
-CREATE OR REPLACE FUNCTION disable_audit(target_table TEXT)
+CREATE OR REPLACE FUNCTION enable_audit(target_table TEXT)
 RETURNS VOID AS $$
 DECLARE
     v_schema TEXT;
@@ -34,36 +26,27 @@ BEGIN
         RAISE EXCEPTION 'Tabela % não existe!', v_full_name;
     END IF;
     
-    -- Verificar se o trigger existe
-    IF NOT EXISTS (
+    -- Verificar se o trigger já existe
+    IF EXISTS (
         SELECT 1 
         FROM information_schema.triggers 
         WHERE event_object_schema = v_schema
           AND event_object_table = v_table
           AND trigger_name = v_table || '_audit_trigger'
     ) THEN
-        RAISE NOTICE 'Auditoria não está ativada para tabela: %', v_full_name;
+        RAISE NOTICE 'Auditoria já está ativada para tabela: %', v_full_name;
         RETURN;
     END IF;
     
-    -- Remover trigger
+    -- Criar trigger
     EXECUTE format('
-        DROP TRIGGER %I_audit_trigger ON %I.%I
+        CREATE TRIGGER %I_audit_trigger
+        AFTER INSERT OR UPDATE OR DELETE ON %I.%I
+        FOR EACH ROW EXECUTE FUNCTION audit_trigger_func()
     ', v_table, v_schema, v_table);
     
-    RAISE NOTICE '⛔ Auditoria desativada para tabela: %', v_full_name;
+    RAISE NOTICE '✅ Auditoria ativada para tabela: %', v_full_name;
 END;
 $$ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp;
-
--- Comentário
-COMMENT ON FUNCTION disable_audit(TEXT) IS 
-'Desativa auditoria automática de uma tabela. Uso: SELECT disable_audit(''nome_tabela'')';
-
--- Teste de verificação
-SELECT 'Função disable_audit() criada com sucesso!' as status;
-
--- Exemplo de uso (comentado):
--- SELECT disable_audit('users');
--- SELECT disable_audit('pedidos');

@@ -1,10 +1,3 @@
--- ============================================
--- 01 - Criar Tabela de Auditoria
--- ============================================
--- Descrição: Tabela única para armazenar todos os logs de auditoria
--- Execução: Uma vez no banco operacional
--- ============================================
-
 CREATE TABLE IF NOT EXISTS audit_log (
     id BIGSERIAL PRIMARY KEY,
     tabela VARCHAR(50) NOT NULL,
@@ -26,6 +19,3 @@ COMMENT ON COLUMN audit_log.ip_address IS 'Endereço IP do cliente (quando dispo
 COMMENT ON COLUMN audit_log.aplicacao IS 'Nome da aplicação conectada (application_name)';
 COMMENT ON COLUMN audit_log.dados_antigos IS 'Estado anterior completo do registro (JSON)';
 COMMENT ON COLUMN audit_log.dados_novos IS 'Estado novo do registro - INSERT: todos os campos | UPDATE: apenas campos que mudaram | DELETE: null';
-
--- Verificação
-SELECT 'Tabela audit_log criada com sucesso!' as status;

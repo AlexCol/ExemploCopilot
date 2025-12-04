@@ -1,11 +1,3 @@
--- ============================================
--- 03 - Criar Função de Trigger de Auditoria
--- ============================================
--- Descrição: Função genérica que captura INSERT, UPDATE e DELETE
---            e grava na tabela audit_log
--- Execução: Uma vez no banco operacional
--- ============================================
-
 CREATE OR REPLACE FUNCTION audit_trigger_func()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -62,15 +54,3 @@ END;
 $$ LANGUAGE plpgsql
 SECURITY DEFINER  -- Executa com privilégios do dono da função
 SET search_path = public, pg_temp;  -- Segurança contra search_path attack
-
--- Comentário
-COMMENT ON FUNCTION audit_trigger_func() IS 
-'Função genérica de trigger para auditoria automática. Captura INSERT, UPDATE e DELETE e grava em audit_log';
-
--- Verificação
-SELECT 
-    proname as nome_funcao,
-    prosrc as codigo,
-    'Função de auditoria criada com sucesso!' as status
-FROM pg_proc 
-WHERE proname = 'audit_trigger_func';

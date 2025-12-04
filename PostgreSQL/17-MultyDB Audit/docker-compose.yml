@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  db_operacional:
+    image: postgres:16
+    container_name: db_operacional
+    restart: always
+    environment:
+      POSTGRES_DB: db_operacional
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./init-operacional:/docker-entrypoint-initdb.d
+
+  db_audit:
+    image: timescale/timescaledb:2.15.1-pg16
+    container_name: db_audit
+    restart: always
+    environment:
+      POSTGRES_DB: db_audit
+      POSTGRES_USER: audit_user
+      POSTGRES_PASSWORD: audit_pass
+    ports:
+      - "5442:5432"
+    volumes:
+      - ./init-audit:/docker-entrypoint-initdb.d
